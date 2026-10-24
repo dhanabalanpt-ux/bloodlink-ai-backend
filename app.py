@@ -1,9 +1,30 @@
+
 from flask import Flask, request, jsonify
 import os
+import numpy as np
+from sklearn.tree import DecisionTreeClassifier
 
 app = Flask(__name__)
 
-# Allow the WordPress website to call this API
+# Demo ML model: trained on synthetic data only.
+# This is not a real-world blood shortage forecasting model.
+rng = np.random.default_rng(42)
+
+rates = np.linspace(0, 100, 1001).reshape(-1, 1)
+labels = np.where(
+    rates[:, 0] < 50, 2,
+    np.where(rates[:, 0] < 70, 1, 0)
+)
+
+model = DecisionTreeClassifier(max_depth=3, random_state=42)
+model.fit(rates, labels)
+
+LABEL_NAMES = {
+    2: "High Concern",
+    1: "Moderate Concern",
+    0: "Lower Concern"
+}
+
 @app.after_request
 def add_cors_headers(response):
     response.headers["Access-Control-Allow-Origin"] = "*"
@@ -15,7 +36,9 @@ def add_cors_headers(response):
 def home():
     return jsonify({
         "project": "BloodLink AI",
-        "status": "Backend working"
+        "status": "Backend working",
+        "ml_model": "Demo Decision Tree",
+        "real_world_validated": False
     })
 
 @app.route("/predict", methods=["POST", "OPTIONS"])
@@ -36,17 +59,18 @@ def predict():
 
     rate = round(available / total * 100, 2)
 
-    if rate < 50:
-        level = "High Concern"
-    elif rate < 70:
-        level = "Moderate Concern"
-    else:
-        level = "Lower Concern"
+    prediction = int(model.predict([[rate]])[0])
+    level = LABEL_NAMES[prediction]
 
     return jsonify({
         "availability_rate": rate,
-        "shortage_indicator": level
+        "shortage_indicator": level,
+        "model_type": "Demo Decision Tree",
+        "demo_model": True
     })
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+    app.run(
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 10000))
+    )
