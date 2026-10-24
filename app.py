@@ -3,6 +3,14 @@ import os
 
 app = Flask(__name__)
 
+# Allow the WordPress website to call this API
+@app.after_request
+def add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    return response
+
 @app.route("/")
 def home():
     return jsonify({
@@ -10,9 +18,12 @@ def home():
         "status": "Backend working"
     })
 
-@app.route("/predict", methods=["POST"])
+@app.route("/predict", methods=["POST", "OPTIONS"])
 def predict():
-    data = request.get_json() or {}
+    if request.method == "OPTIONS":
+        return "", 204
+
+    data = request.get_json(silent=True) or {}
 
     try:
         total = int(data.get("total", 0))
